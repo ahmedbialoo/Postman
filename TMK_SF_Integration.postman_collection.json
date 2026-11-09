@@ -1,0 +1,143 @@
+{
+  "info": {
+    "name": "TMK SalesForce Integration",
+    "description": "TMK_SFIntegrationService tests. Select the 'TMK SalesForce - D365' environment. The collection pre-request script gets a token automatically and saves it in {{access_token}}; 'Get Token' does the same manually.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{access_token}}", "type": "string" }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Skip for the token request itself",
+          "if (pm.info.requestName === 'Get Token') { return; }",
+          "",
+          "// Reuse the saved token until 60 seconds before it expires",
+          "const expiresAt = Number(pm.environment.get('token_expires_at') || 0);",
+          "if (pm.environment.get('access_token') && Date.now() < expiresAt - 60000) { return; }",
+          "",
+          "pm.sendRequest({",
+          "    url: 'https://login.microsoftonline.com/' + pm.environment.get('tenant_id') + '/oauth2/token',",
+          "    method: 'POST',",
+          "    header: { 'Content-Type': 'application/x-www-form-urlencoded' },",
+          "    body: {",
+          "        mode: 'urlencoded',",
+          "        urlencoded: [",
+          "            { key: 'grant_type',    value: 'client_credentials' },",
+          "            { key: 'client_id',     value: pm.environment.get('client_id') },",
+          "            { key: 'client_secret', value: pm.environment.get('client_secret') },",
+          "            { key: 'resource',      value: pm.environment.get('resource') }",
+          "        ]",
+          "    }",
+          "}, function (err, res) {",
+          "    if (err || res.code !== 200) {",
+          "        console.error('Token request failed', err || res.text());",
+          "        return;",
+          "    }",
+          "    const json = res.json();",
+          "    pm.environment.set('access_token', json.access_token);",
+          "    pm.environment.set('token_expires_at', Date.now() + Number(json.expires_in) * 1000);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Get Token",
+      "request": {
+        "auth": { "type": "noauth" },
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type",    "value": "client_credentials" },
+            { "key": "client_id",     "value": "{{client_id}}" },
+            { "key": "client_secret", "value": "{{client_secret}}" },
+            { "key": "resource",      "value": "{{resource}}" }
+          ]
+        },
+        "url": "https://login.microsoftonline.com/{{tenant_id}}/oauth2/token"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Token received', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('access_token', json.access_token);",
+              "pm.environment.set('token_expires_at', Date.now() + Number(json.expires_in) * 1000);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Service operations (metadata)",
+      "request": {
+        "method": "GET",
+        "url": "{{resource}}/api/services/TMK_SFIntegrationServiceGroup/TMK_SFIntegrationService"
+      }
+    },
+    {
+      "name": "getAllData",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Request\": {\n    \"DataAreaId\": \"{{data_area_id}}\"\n  }\n}"
+        },
+        "url": "{{resource}}/api/services/TMK_SFIntegrationServiceGroup/TMK_SFIntegrationService/getAllData"
+      }
+    },
+    {
+      "name": "getDataByCustomer",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Request\": {\n    \"DataAreaId\": \"{{data_area_id}}\",\n    \"AccountNum\": \"CUST-000001\"\n  }\n}"
+        },
+        "url": "{{resource}}/api/services/TMK_SFIntegrationServiceGroup/TMK_SFIntegrationService/getDataByCustomer"
+      }
+    },
+    {
+      "name": "getDataByContract",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Request\": {\n    \"DataAreaId\": \"{{data_area_id}}\",\n    \"ContractId\": \"CON-000001\"\n  }\n}"
+        },
+        "url": "{{resource}}/api/services/TMK_SFIntegrationServiceGroup/TMK_SFIntegrationService/getDataByContract"
+      }
+    },
+    {
+      "name": "getDataByDate",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"Request\": {\n    \"DataAreaId\": \"{{data_area_id}}\",\n    \"FromDate\": \"2026-01-01T00:00:00\",\n    \"ToDate\": \"2026-12-31T00:00:00\"\n  }\n}"
+        },
+        "url": "{{resource}}/api/services/TMK_SFIntegrationServiceGroup/TMK_SFIntegrationService/getDataByDate"
+      }
+    }
+  ]
+}
